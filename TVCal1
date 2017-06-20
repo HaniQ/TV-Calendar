@@ -1,0 +1,224 @@
+from __future__ import print_function
+import httplib2
+import os
+from apiclient import discovery
+from oauth2client import client
+from oauth2client import tools
+from oauth2client.file import Storage
+import datetime
+import bs4
+from datetime import datetime
+from urllib.request import urlopen as uReq
+from bs4 import BeautifulSoup as soup 
+
+
+'''Finding the right page of the show'''
+
+currentYear = str(datetime.now().year)
+
+TVShowName = input('Enter the TV show you want to follow!')
+
+In1 = TVShowName.split(' ')
+for i in range(0, len(In1)):
+	if 'title' in str(In1[i]):
+		NewURLExtensionNumber = i
+
+number = len(In1)
+
+newIn = 'String'
+
+for i in range (0, number):
+	Element = In1[i]
+	if(i == 0):
+		newIn = str(Element) 
+	else: 
+		newIn = newIn + '%20' + str(Element)
+
+'''The URL that you are searching'''
+my_url = 'http://www.imdb.com/find?s=all&q=' + newIn  #Visiting the website 
+
+'''Opens up the URL''' 
+uClient = uReq(my_url)
+
+'''Reads and saves the html of the URL'''
+page_html = uClient.read()
+
+'''Closes the connection with the client'''
+uClient.close()
+
+'''Parses the saved html'''
+page_soup = soup(page_html, "html.parser")
+
+containers = page_soup.findAll("td", {"class":"result_text"})
+
+page_value = True
+
+for i in range (0, len(containers)):
+	if(page_value == True):
+		if 'TV Series' in str(containers[i]):
+			ContainerNumber = i
+			page_value = False
+
+title = str(containers[ContainerNumber].a) 
+
+In = title.split('"')
+for i in range(0, len(In)):
+	if 'title' in str(In[i]):
+		NewURLExtensionNumber = i
+
+NewURLExtension = str(In[NewURLExtensionNumber])
+new_url = 'http://www.imdb.com/' + NewURLExtension
+
+
+uClient = uReq(new_url)
+page_html = uClient.read()
+uClient.close()
+page_soup = soup(page_html, "html.parser")
+
+new_containers = page_soup.findAll("div", {"class":"seasons-and-year-nav"})
+
+new_container = new_containers[0]
+
+seasons_years = new_containers[0].findAll('a')
+
+year = False
+element = 0 
+counter = 0
+Episode_List = [] #A list of the episode numbers
+air_date = []
+
+for i in range (0, len(seasons_years)):
+	seasons_or_years = str(seasons_years[i])
+	years = seasons_or_years.split('"')
+	if 'year' in years[1]:
+		if(year == False):
+			counter = counter + 1
+	if(year == False):
+		if currentYear in years[2]:
+			year = True
+			element = counter - 1
+
+CurrentSeason = str(seasons_years[element])
+
+Seasons_page = CurrentSeason.split('"')
+for i in range(0, len(Seasons_page)):
+	if 'title' in str(In[i]):
+		NewNewURLExtensionNumber = i
+
+NewNewURLExtension = str(Seasons_page[NewNewURLExtensionNumber])
+new_new_url = 'http://www.imdb.com/' + NewNewURLExtension
+uClient = uReq(new_new_url)
+page_html = uClient.read()
+uClient.close()
+page_soup = soup(page_html, "html.parser")
+EpisodeContainers = page_soup.findAll("div", {"class":"info"})
+
+for i in range (0, len(EpisodeContainers)):
+	Isolate_Episode_Number = str(EpisodeContainers[i].meta)
+	Episode_Number = Isolate_Episode_Number.split('"')
+	print("Episode: " + Episode_Number[1])
+	Isolate_Air_Dates = str(EpisodeContainers[i].findAll("div", {"class":"airdate"}))
+	Air_Dates = Isolate_Air_Dates.replace("<", ">").replace("\n", ">").split('>')
+	print("Comes out on: " + Air_Dates[3])
+	Episode_List.append(Episode_Number[1])
+	air_date.append(Air_Dates[3])
+
+print('This is the episode list:')
+print(Episode_List)
+print('These are the air dates:')
+print(air_date)
+for i in range (0, len(EpisodeContainers)):
+	airdates = air_date[i].split(' ')
+	day = str(airdates[12])
+	month = str(airdates[13])
+	year = str(airdates[14])
+
+	Month = '00'
+
+	if (month == 'Jan.'):
+		Month = '01'
+	elif (month == 'Feb.'):
+		Month = '02'
+	elif (month == 'Mar.'):
+		Month = '03'
+	elif (month == 'Apr.'):
+		Month = '04'
+	elif (month == 'May'):
+		Month = '05'
+	elif (month == 'Jun.'):
+		Month = '06'
+	elif (month == 'Jul.'):
+		Month = '07'
+	elif (month == 'Aug.'):
+		Month = '08'
+	elif (month == 'Sep.'):
+		Month = '09'
+	elif (month == 'Oct.'):
+		Month = '10'
+	elif (month == 'Nov.'):
+		Month = '11'
+	elif (month == 'Dec.'):
+		Month = '12'
+	date = year + '-' + Month + '-' + day
+	air_date[i] = date
+
+print(air_date)
+
+try:
+	import argparse
+	flags = argparse.ArgumentParser(parents=[tools.argparser]).parse_args()
+except ImportError:
+	flags = None
+
+SCOPES = 'https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/plus.login'
+CLIENT_SECRET_FILE = 'client_secret.json'
+APPLICATION_NAME = 'Google Calendar API Python Quickstart'
+
+
+def get_credentials():
+	"""Gets valid user credentials from storage.
+
+	If nothing has been stored, or if the stored credentials are invalid,
+	the OAuth2 flow is completed to obtain the new credentials.
+
+	Returns:
+		Credentials, the obtained credential.
+	"""
+	home_dir = os.path.expanduser('~')
+	credential_dir = os.path.join(home_dir, '.credentials')
+	if not os.path.exists(credential_dir):
+		os.makedirs(credential_dir)
+	credential_path = os.path.join(credential_dir,
+								   'calendar-python-quickstart.json')
+
+	store = Storage(credential_path)
+	credentials = store.get()
+	if not credentials or credentials.invalid:
+		flow = client.flow_from_clientsecrets(CLIENT_SECRET_FILE, SCOPES)
+		flow.user_agent = APPLICATION_NAME
+		if flags:
+			credentials = tools.run_flow(flow, store, flags)
+		else: # Needed only for compatibility with Python 2.6
+			credentials = tools.run(flow, store)
+		print('Storing credentials to ' + credential_path)
+	return credentials
+
+credentials = get_credentials()
+http = credentials.authorize(httplib2.Http())
+service = discovery.build('calendar', 'v3', http=http)
+
+email = input('Please enter your email Address')
+
+
+for i in range(0, len(Episode_List)):
+	event = {'summary': TVShowName + " " + Episode_List[i], 'start': {'dateTime': air_date[i]+'T09:00:00-07:00','timeZone': 'America/Los_Angeles',},'end': {'dateTime': air_date[i] + 'T17:00:00-07:00','timeZone': 'America/Los_Angeles',},}
+	event = service.events().insert(calendarId=email, body=event).execute()
+	print ('Event created: %s' % (event.get('htmlLink')))
+
+
+
+
+
+
+
+
